@@ -1,8 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import '../data/mock_diaries.dart';
 import '../models/diary.dart';
+import '../services/diary_service.dart';
 import 'editor_page.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -16,12 +16,55 @@ class _CalendarPageState extends State<CalendarPage> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  Set<String> _diaryDates = {};
+  Diary? _selectedDiary;
+  bool _isLoading = false;
+  bool _isLoadingDiary = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMonthDiaries(_focusedDay.year, _focusedDay.month);
+  }
+
+  Future<void> _loadMonthDiaries(int year, int month) async {
+    setState(() => _isLoading = true);
+    try {
+      final dates = await DiaryService.getDiaryDatesForMonth(year, month);
+      setState(() {
+        _diaryDates = dates.map((d) => '${d.year}-${d.month}-${d.day}').toSet();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadDiaryForDate(DateTime date) async {
+    setState(() => _isLoadingDiary = true);
+    try {
+      final diary = await DiaryService.getDiaryForDate(date);
+      setState(() {
+        _selectedDiary = diary;
+        _isLoadingDiary = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingDiary = false);
+    }
+  }
+
+  bool _hasDiary(DateTime date) {
+    final key = '${date.year}-${date.month}-${date.day}';
+    return _diaryDates.contains(key);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
+          if (_isLoading)
+            const LinearProgressIndicator(minHeight: 2),
           TableCalendar(
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
@@ -32,13 +75,16 @@ class _CalendarPageState extends State<CalendarPage> {
               setState(() {
                 _selectedDay = selectedDay;
                 _focusedDay = focusedDay;
+                _selectedDiary = null;
               });
+              _loadDiaryForDate(selectedDay);
             },
             onFormatChanged: (format) {
               setState(() => _calendarFormat = format);
             },
             onPageChanged: (focusedDay) {
               _focusedDay = focusedDay;
+              _loadMonthDiaries(focusedDay.year, focusedDay.month);
             },
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
@@ -86,8 +132,7 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
-                final diary = getDiaryForDate(date);
-                if (diary != null) {
+                if (_hasDiary(date)) {
                   return Positioned(
                     bottom: 4,
                     child: Container(
@@ -125,7 +170,11 @@ class _CalendarPageState extends State<CalendarPage> {
       );
     }
 
-    final diary = getDiaryForDate(_selectedDay!);
+    if (_isLoadingDiary) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final diary = _selectedDiary;
 
     if (diary == null) {
       return Center(
@@ -229,12 +278,17 @@ class _CalendarPageState extends State<CalendarPage> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
   }
 
-  void _navigateToEditor({Diary? diary}) {
-    Navigator.push(
+  void _navigateToEditor({Diary? diary}) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EditorPage(diary: diary, selectedDate: _selectedDay),
       ),
     );
+    // 编辑返回后刷新
+    if (_selectedDay != null) {
+      _loadMonthDiaries(_selectedDay!.year, _selectedDay!.month);
+      _loadDiaryForDate(_selectedDay!);
+    }
   }
 }

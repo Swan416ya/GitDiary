@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'editor_page.dart';
@@ -5,6 +7,16 @@ import 'history_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  Map<String, dynamic>? _getUserInfo() {
+    try {
+      final userStr = html.window.localStorage['github_user'];
+      if (userStr != null && userStr.isNotEmpty) {
+        return json.decode(userStr) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +32,10 @@ class HomePage extends StatelessWidget {
     } else {
       greeting = '晚上好';
     }
+
+    final user = _getUserInfo();
+    final username = user?['login'] as String? ?? '用户';
+    final avatarUrl = user?['avatar_url'] as String?;
 
     return Scaffold(
       body: SafeArea(
@@ -55,7 +71,7 @@ class HomePage extends StatelessWidget {
                   const Spacer(),
                   GestureDetector(
                     onTap: () {
-                      // TODO: navigate to settings or profile
+                      Navigator.pushNamed(context, '/account');
                     },
                     child: Container(
                       width: 48,
@@ -69,11 +85,21 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                       child: ClipOval(
-                        child: Icon(
-                          Icons.person,
-                          color: AppTheme.primaryColor.withOpacity(0.6),
-                          size: 24,
-                        ),
+                        child: avatarUrl != null
+                            ? Image.network(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.person,
+                                  color: AppTheme.primaryColor.withOpacity(0.6),
+                                  size: 24,
+                                ),
+                              )
+                            : Icon(
+                                Icons.person,
+                                color: AppTheme.primaryColor.withOpacity(0.6),
+                                size: 24,
+                              ),
                       ),
                     ),
                   ),
@@ -86,9 +112,9 @@ class HomePage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      greeting,
+                      '$greeting，$username',
                       style: const TextStyle(
-                        fontSize: 42,
+                        fontSize: 38,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
                       ),

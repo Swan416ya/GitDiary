@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import '../models/diary.dart';
+import '../services/diary_service.dart';
 import '../widgets/emoji_picker.dart';
 
 class EditorPage extends StatefulWidget {
@@ -458,13 +458,40 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
-  void _saveDiary() {
+  Future<void> _saveDiary() async {
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请写点什么吧')));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('日记已保存（Mock）')));
-    Navigator.pop(context);
+
+    final diary = Diary(
+      id: _selectedDate.millisecondsSinceEpoch,
+      date: _selectedDate,
+      title: _titleController.text.trim().isEmpty ? null : _titleController.text.trim(),
+      content: _contentController.text,
+      emoji: _selectedEmoji,
+    );
+
+    // 显示保存中
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('正在保存...'), duration: Duration(seconds: 10)),
+    );
+
+    try {
+      await DiaryService.saveDiary(diary);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('日记已保存'), duration: Duration(seconds: 2)),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存失败: $e'), duration: const Duration(seconds: 4)),
+      );
+    }
   }
 }
 

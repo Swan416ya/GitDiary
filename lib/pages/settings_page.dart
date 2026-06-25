@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'account_page.dart';
@@ -5,8 +7,21 @@ import 'account_page.dart';
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
+  String _getUsername() {
+    try {
+      final userStr = html.window.localStorage['github_user'];
+      if (userStr != null && userStr.isNotEmpty) {
+        final user = json.decode(userStr) as Map<String, dynamic>;
+        return user['login'] as String? ?? '未登录';
+      }
+    } catch (_) {}
+    return '未登录';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final username = _getUsername();
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -16,7 +31,7 @@ class SettingsPage extends StatelessWidget {
               _SettingItem(
                 icon: Icons.account_circle,
                 title: 'GitHub 账号',
-                subtitle: 'mock_user',
+                subtitle: username,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -63,7 +78,7 @@ class SettingsPage extends StatelessWidget {
               _SettingItem(
                 icon: Icons.info_outline,
                 title: '版本',
-                subtitle: 'v0.1.0 (Mock)',
+                subtitle: 'v0.1.0',
                 onTap: () {},
               ),
             ]),
