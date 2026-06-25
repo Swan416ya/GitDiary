@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../data/mock_diaries.dart';
@@ -20,9 +20,6 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('日历'),
-      ),
       body: Column(
         children: [
           TableCalendar(
@@ -60,8 +57,11 @@ class _CalendarPageState extends State<CalendarPage> {
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
-              markerDecoration: const BoxDecoration(), 
-              markersMaxCount: 0,
+              markerDecoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary,
+                shape: BoxShape.circle,
+              ),
+              markersMaxCount: 1,
             ),
             headerStyle: HeaderStyle(
               titleCentered: true,
@@ -87,14 +87,15 @@ class _CalendarPageState extends State<CalendarPage> {
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
                 final diary = getDiaryForDate(date);
-                if (diary != null && diary.emoji != null) {
-                  final isSelected = isSameDay(_selectedDay, date);
+                if (diary != null) {
                   return Positioned(
-                    bottom: 2,
-                    child: Text(
-                      diary.emoji!,
-                      style: TextStyle(
-                        fontSize: isSelected ? 14 : 16,
+                    bottom: 4,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondary,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   );

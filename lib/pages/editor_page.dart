@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import '../models/diary.dart';
 import '../widgets/emoji_picker.dart';
 
@@ -56,91 +58,29 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {});
   }
 
-  void _insertImage() {
-    final mockImages = [
-      ('images/2026/06/sunset.jpg', '晚霞'),
-      ('images/2026/06/coffee.jpg', '咖啡'),
-      ('images/2026/06/cat.jpg', '猫'),
-      ('images/2026/06/flower.jpg', '花'),
-      ('images/2026/06/food.jpg', '美食'),
-      ('images/2026/06/street.jpg', '街道'),
-    ];
+  void _insertImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '插入图片',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '图片将存储在仓库的 images/ 文件夹中',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 1,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: mockImages.length,
-                itemBuilder: (context, index) {
-                  final (path, label) = mockImages[index];
-                  return GestureDetector(
-                    onTap: () {
-                      _insertText('\n\n![$label]($path)\n\n');
-                      Navigator.pop(context);
-                    },
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 36,
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(label, style: const TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    _insertText('\n\n![描述](images/上传你的图片.jpg)\n\n');
-                    Navigator.pop(context);
-                  },
-                  icon: const Icon(Icons.upload),
-                  label: const Text('自定义路径'),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    final fileName = file.name;
+
+    final now = DateTime.now();
+    final year = now.year.toString();
+    final month = now.month.toString().padLeft(2, '0');
+    final imagePath = 'images/$year/$month/$fileName';
+
+    _insertText('\n\n![]($imagePath)\n\n');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('图片已选择，保存日记时将上传到 $imagePath'),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -261,7 +201,7 @@ class _EditorPageState extends State<EditorPage> {
       onTap: _openEmojiPicker,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
@@ -269,26 +209,40 @@ class _EditorPageState extends State<EditorPage> {
         ),
         child: Row(
           children: [
-            Text(
-              '心情',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Icon(Icons.emoji_emotions_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 12),
-            if (_selectedEmoji != null)
-              Text(_selectedEmoji!, style: const TextStyle(fontSize: 28))
-            else
-              Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4), size: 28),
-            const Spacer(),
-            if (_selectedEmoji != null)
-              GestureDetector(
-                onTap: () => setState(() => _selectedEmoji = null),
-                child: Icon(Icons.close, size: 18, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
+            if (_selectedEmoji != null) ...[
+              Text(_selectedEmoji!, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(
+                _emojiLabel(_selectedEmoji!),
+                style: Theme.of(context).textTheme.bodyLarge,
               ),
+            ] else
+              Text(
+                '心情',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            const Spacer(),
             Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
           ],
         ),
       ),
     );
+  }
+
+  String _emojiLabel(String emoji) {
+    const labels = {
+      '😀': '开心', '😂': '大笑', '😌': '惬意', '😔': '难过',
+      '😠': '生气', '😢': '委屈', '😭': '大哭', '😴': '困倦',
+      '🥰': '幸福', '😍': '喜爱', '🤔': '思考', '😅': '尴尬',
+      '☀️': '晴朗', '🌙': '夜晚', '🔥': '热情', '❤️': '爱心',
+      '💪': '加油', '🙏': '感恩', '☕': '咖啡', '🍦': '甜蜜',
+      '🍉': '清凉', '🌱': '希望', '🌅': '日出', '🌧️': '阴雨',
+    };
+    return labels[emoji] ?? '心情';
   }
 
   Widget _buildToolbar() {
