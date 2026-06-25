@@ -30,9 +30,7 @@ class _CalendarPageState extends State<CalendarPage> {
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: _focusedDay,
             calendarFormat: _calendarFormat,
-            selectedDayPredicate: (day) {
-              return isSameDay(_selectedDay, day);
-            },
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             onDaySelected: (selectedDay, focusedDay) {
               setState(() {
                 _selectedDay = selectedDay;
@@ -40,16 +38,14 @@ class _CalendarPageState extends State<CalendarPage> {
               });
             },
             onFormatChanged: (format) {
-              setState(() {
-                _calendarFormat = format;
-              });
+              setState(() => _calendarFormat = format);
             },
             onPageChanged: (focusedDay) {
               _focusedDay = focusedDay;
             },
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               todayTextStyle: TextStyle(
@@ -64,11 +60,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
-              markerDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
-                shape: BoxShape.circle,
-              ),
-              markersMaxCount: 1,
+              markerDecoration: const BoxDecoration(), 
+              markersMaxCount: 0,
             ),
             headerStyle: HeaderStyle(
               titleCentered: true,
@@ -77,17 +70,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              formatButtonTextStyle: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              leftChevronIcon: Icon(
-                Icons.chevron_left,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              rightChevronIcon: Icon(
-                Icons.chevron_right,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              formatButtonTextStyle: TextStyle(color: Theme.of(context).colorScheme.primary),
+              leftChevronIcon: Icon(Icons.chevron_left, color: Theme.of(context).colorScheme.primary),
+              rightChevronIcon: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.primary),
             ),
             daysOfWeekStyle: DaysOfWeekStyle(
               weekdayStyle: TextStyle(
@@ -102,15 +87,14 @@ class _CalendarPageState extends State<CalendarPage> {
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
                 final diary = getDiaryForDate(date);
-                if (diary != null) {
+                if (diary != null && diary.emoji != null) {
+                  final isSelected = isSameDay(_selectedDay, date);
                   return Positioned(
-                    bottom: 4,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary,
-                        shape: BoxShape.circle,
+                    bottom: 2,
+                    child: Text(
+                      diary.emoji!,
+                      style: TextStyle(
+                        fontSize: isSelected ? 14 : 16,
                       ),
                     ),
                   );
@@ -120,9 +104,7 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
           ),
           const Divider(),
-          Expanded(
-            child: _buildSelectedDayContent(),
-          ),
+          Expanded(child: _buildSelectedDayContent()),
         ],
       ),
     );
@@ -134,18 +116,9 @@ class _CalendarPageState extends State<CalendarPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.calendar_today,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
-            ),
+            Icon(Icons.calendar_today, size: 48, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
             const SizedBox(height: 12),
-            Text(
-              '选择日期查看日记',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-            ),
+            Text('选择日期查看日记', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
           ],
         ),
       );
@@ -158,18 +131,9 @@ class _CalendarPageState extends State<CalendarPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.edit_note,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
-            ),
+            Icon(Icons.edit_note, size: 48, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
             const SizedBox(height: 12),
-            Text(
-              '这一天还没有写日记',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-            ),
+            Text('这一天还没有写日记', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => _navigateToEditor(diary: null),
@@ -196,34 +160,16 @@ class _CalendarPageState extends State<CalendarPage> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
-                  if (diary.weather != null)
-                    Icon(
-                      _getWeatherIcon(diary.weather!),
-                      color: _getWeatherColor(diary.weather!),
-                    ),
-                  if (diary.mood != null) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      _getMoodIcon(diary.mood!),
-                      color: _getMoodColor(diary.mood!),
-                    ),
-                  ],
+                  if (diary.emoji != null)
+                    Text(diary.emoji!, style: const TextStyle(fontSize: 28)),
                 ],
               ),
               if (diary.title != null) ...[
                 const SizedBox(height: 12),
-                Text(
-                  diary.title!,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 20,
-                  ),
-                ),
+                Text(diary.title!, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20)),
               ],
               const SizedBox(height: 16),
-              Text(
-                diary.content,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
+              _buildContentPreview(diary.content),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -242,6 +188,46 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  Widget _buildContentPreview(String text) {
+    final lines = text.split('\n');
+    List<Widget> widgets = [];
+
+    for (var line in lines) {
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      final imageMatch = RegExp(r'^!\[(.*?)\]\((.*?)\)$').firstMatch(line.trim());
+      if (imageMatch != null) {
+        final alt = imageMatch.group(1) ?? '';
+        widgets.add(Container(
+          width: double.infinity,
+          height: 160,
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.image, size: 32, color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+              const SizedBox(height: 4),
+              Text(alt, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+            ],
+          ),
+        ));
+        continue;
+      }
+
+      widgets.add(Text(line, style: Theme.of(context).textTheme.bodyLarge));
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+  }
+
   void _navigateToEditor({Diary? diary}) {
     Navigator.push(
       context,
@@ -249,45 +235,5 @@ class _CalendarPageState extends State<CalendarPage> {
         builder: (context) => EditorPage(diary: diary, selectedDate: _selectedDay),
       ),
     );
-  }
-
-  IconData _getWeatherIcon(Weather weather) {
-    switch (weather) {
-      case Weather.sunny: return Icons.wb_sunny;
-      case Weather.cloudy: return Icons.wb_cloudy;
-      case Weather.rainy: return Icons.water_drop;
-      case Weather.snowy: return Icons.ac_unit;
-      case Weather.windy: return Icons.air;
-    }
-  }
-
-  Color _getWeatherColor(Weather weather) {
-    switch (weather) {
-      case Weather.sunny: return Colors.orange;
-      case Weather.cloudy: return Colors.grey;
-      case Weather.rainy: return Colors.blue;
-      case Weather.snowy: return Colors.lightBlue;
-      case Weather.windy: return Colors.teal;
-    }
-  }
-
-  IconData _getMoodIcon(Mood mood) {
-    switch (mood) {
-      case Mood.happy: return Icons.sentiment_very_satisfied;
-      case Mood.calm: return Icons.sentiment_satisfied;
-      case Mood.sad: return Icons.sentiment_dissatisfied;
-      case Mood.angry: return Icons.sentiment_very_dissatisfied;
-      case Mood.excited: return Icons.mood;
-    }
-  }
-
-  Color _getMoodColor(Mood mood) {
-    switch (mood) {
-      case Mood.happy: return Colors.green;
-      case Mood.calm: return Colors.blue;
-      case Mood.sad: return Colors.indigo;
-      case Mood.angry: return Colors.red;
-      case Mood.excited: return Colors.orange;
-    }
   }
 }

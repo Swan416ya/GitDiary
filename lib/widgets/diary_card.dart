@@ -2,94 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/diary.dart';
 import '../theme/app_theme.dart';
 
-class WeatherIcon extends StatelessWidget {
-  final Weather? weather;
-  final double size;
-
-  const WeatherIcon({
-    super.key,
-    this.weather,
-    this.size = 24,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    IconData iconData;
-    Color color;
-
-    switch (weather) {
-      case Weather.sunny:
-        iconData = Icons.wb_sunny;
-        color = Colors.orange;
-        break;
-      case Weather.cloudy:
-        iconData = Icons.wb_cloudy;
-        color = Colors.grey;
-        break;
-      case Weather.rainy:
-        iconData = Icons.water_drop;
-        color = Colors.blue;
-        break;
-      case Weather.snowy:
-        iconData = Icons.ac_unit;
-        color = Colors.lightBlue;
-        break;
-      case Weather.windy:
-        iconData = Icons.air;
-        color = Colors.teal;
-        break;
-      default:
-        return const SizedBox.shrink();
-    }
-
-    return Icon(iconData, size: size, color: color);
-  }
-}
-
-class MoodIcon extends StatelessWidget {
-  final Mood? mood;
-  final double size;
-
-  const MoodIcon({
-    super.key,
-    this.mood,
-    this.size = 24,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    IconData iconData;
-    Color color;
-
-    switch (mood) {
-      case Mood.happy:
-        iconData = Icons.sentiment_very_satisfied;
-        color = Colors.green;
-        break;
-      case Mood.calm:
-        iconData = Icons.sentiment_satisfied;
-        color = Colors.blue;
-        break;
-      case Mood.sad:
-        iconData = Icons.sentiment_dissatisfied;
-        color = Colors.indigo;
-        break;
-      case Mood.angry:
-        iconData = Icons.sentiment_very_dissatisfied;
-        color = Colors.red;
-        break;
-      case Mood.excited:
-        iconData = Icons.mood;
-        color = Colors.orange;
-        break;
-      default:
-        return const SizedBox.shrink();
-    }
-
-    return Icon(iconData, size: size, color: color);
-  }
-}
-
 class DiaryCard extends StatelessWidget {
   final Diary diary;
   final VoidCallback? onTap;
@@ -124,12 +36,8 @@ class DiaryCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (diary.weather != null)
-                    WeatherIcon(weather: diary.weather, size: 20),
-                  if (diary.mood != null) ...[
-                    const SizedBox(width: 8),
-                    MoodIcon(mood: diary.mood, size: 20),
-                  ],
+                  if (diary.emoji != null)
+                    Text(diary.emoji!, style: const TextStyle(fontSize: 20)),
                 ],
               ),
               if (diary.title != null) ...[
@@ -204,12 +112,8 @@ class TodayInHistoryCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  if (diary.weather != null)
-                    WeatherIcon(weather: diary.weather, size: 18),
-                  if (diary.mood != null) ...[
-                    const SizedBox(width: 6),
-                    MoodIcon(mood: diary.mood, size: 18),
-                  ],
+                  if (diary.emoji != null)
+                    Text(diary.emoji!, style: const TextStyle(fontSize: 20)),
                 ],
               ),
               const SizedBox(height: 12),

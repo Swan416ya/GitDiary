@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/diary.dart';
+import '../widgets/emoji_picker.dart';
 
 class EditorPage extends StatefulWidget {
   final Diary? diary;
@@ -20,9 +21,9 @@ class _EditorPageState extends State<EditorPage> {
   late DateTime _selectedDate;
   late TextEditingController _titleController;
   late TextEditingController _contentController;
-  Weather? _selectedWeather;
-  Mood? _selectedMood;
+  String? _selectedEmoji;
   bool _isPreview = false;
+  late ScrollController _scrollController;
 
   @override
   void initState() {
@@ -30,15 +31,133 @@ class _EditorPageState extends State<EditorPage> {
     _selectedDate = widget.selectedDate ?? widget.diary?.date ?? DateTime.now();
     _titleController = TextEditingController(text: widget.diary?.title ?? '');
     _contentController = TextEditingController(text: widget.diary?.content ?? '');
-    _selectedWeather = widget.diary?.weather;
-    _selectedMood = widget.diary?.mood;
+    _selectedEmoji = widget.diary?.emoji;
+    _scrollController = ScrollController();
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _insertText(String text) {
+    final selection = _contentController.selection;
+    final currentText = _contentController.text;
+    final newText = selection.textBefore(text) + text + selection.textAfter(currentText);
+    _contentController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: selection.baseOffset + text.length,
+      ),
+    );
+    setState(() {});
+  }
+
+  void _insertImage() {
+    final mockImages = [
+      ('images/2026/06/sunset.jpg', '晚霞'),
+      ('images/2026/06/coffee.jpg', '咖啡'),
+      ('images/2026/06/cat.jpg', '猫'),
+      ('images/2026/06/flower.jpg', '花'),
+      ('images/2026/06/food.jpg', '美食'),
+      ('images/2026/06/street.jpg', '街道'),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '插入图片',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '图片将存储在仓库的 images/ 文件夹中',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 1,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: mockImages.length,
+                itemBuilder: (context, index) {
+                  final (path, label) = mockImages[index];
+                  return GestureDetector(
+                    onTap: () {
+                      _insertText('\n\n![$label]($path)\n\n');
+                      Navigator.pop(context);
+                    },
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 36,
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(label, style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    _insertText('\n\n![描述](images/上传你的图片.jpg)\n\n');
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.upload),
+                  label: const Text('自定义路径'),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openEmojiPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => EmojiPickerSheet(
+        selectedEmoji: _selectedEmoji,
+        onSelected: (emoji) {
+          setState(() {
+            _selectedEmoji = emoji;
+          });
+        },
+      ),
+    );
   }
 
   @override
@@ -69,78 +188,153 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Widget _buildEditor() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: _selectDate,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Theme.of(context).dividerColor,
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: _selectDate,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 20, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 12),
+                        Text(
+                          DateFormat('yyyy年M月d日').format(_selectedDate),
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        const Spacer(),
+                        Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
+                const SizedBox(height: 16),
+                _buildEmojiSelector(),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    hintText: '标题（可选）',
+                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    DateFormat('yyyy年M月d日').format(_selectedDate),
-                    style: Theme.of(context).textTheme.bodyLarge,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _contentController,
+                  decoration: InputDecoration(
+                    hintText: '写下今天的故事...\n支持 Markdown 语法',
+                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
+                    alignLabelWithHint: true,
                   ),
-                  const Spacer(),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ],
-              ),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  maxLines: null,
+                  minLines: 10,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          _buildWeatherSelector(),
-          const SizedBox(height: 16),
-          _buildMoodSelector(),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _titleController,
-            decoration: InputDecoration(
-              hintText: '标题（可选）',
-              hintStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+        ),
+        _buildToolbar(),
+      ],
+    );
+  }
+
+  Widget _buildEmojiSelector() {
+    return InkWell(
+      onTap: _openEmojiPicker,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Row(
+          children: [
+            Text(
+              '心情',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: 12),
+            if (_selectedEmoji != null)
+              Text(_selectedEmoji!, style: const TextStyle(fontSize: 28))
+            else
+              Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4), size: 28),
+            const Spacer(),
+            if (_selectedEmoji != null)
+              GestureDetector(
+                onTap: () => setState(() => _selectedEmoji = null),
+                child: Icon(Icons.close, size: 18, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
               ),
+            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _ToolbarButton(
+              icon: Icons.image_outlined,
+              label: '图片',
+              onTap: _insertImage,
             ),
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontSize: 20,
+            _ToolbarButton(
+              icon: Icons.format_bold,
+              label: '粗体',
+              onTap: () => _insertText('**粗体**'),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _contentController,
-            decoration: InputDecoration(
-              hintText: '写下今天的故事...',
-              hintStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-              ),
-              alignLabelWithHint: true,
+            _ToolbarButton(
+              icon: Icons.format_italic,
+              label: '斜体',
+              onTap: () => _insertText('*斜体*'),
             ),
-            style: Theme.of(context).textTheme.bodyLarge,
-            maxLines: null,
-            minLines: 10,
-            keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.newline,
-          ),
-        ],
+            _ToolbarButton(
+              icon: Icons.format_quote,
+              label: '引用',
+              onTap: () => _insertText('\n> 引用文字\n'),
+            ),
+            _ToolbarButton(
+              icon: Icons.format_list_bulleted,
+              label: '列表',
+              onTap: () => _insertText('\n- 列表项\n- 列表项\n'),
+            ),
+            _ToolbarButton(
+              icon: Icons.code,
+              label: '代码',
+              onTap: () => _insertText('`代码`'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -158,120 +352,135 @@ class _EditorPageState extends State<EditorPage> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const Spacer(),
-              if (_selectedWeather != null)
-                Icon(
-                  _getWeatherIcon(_selectedWeather!),
-                  color: _getWeatherColor(_selectedWeather!),
-                  size: 20,
-                ),
-              if (_selectedMood != null) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  _getMoodIcon(_selectedMood!),
-                  color: _getMoodColor(_selectedMood!),
-                  size: 20,
-                ),
-              ],
+              if (_selectedEmoji != null)
+                Text(_selectedEmoji!, style: const TextStyle(fontSize: 24)),
             ],
           ),
           const SizedBox(height: 16),
           if (_titleController.text.isNotEmpty)
-            Text(
-              _titleController.text,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            Text(_titleController.text, style: Theme.of(context).textTheme.headlineMedium),
           if (_titleController.text.isNotEmpty)
             const SizedBox(height: 16),
-          Text(
-            _contentController.text,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
+          _buildMarkdownPreview(_contentController.text),
         ],
       ),
     );
   }
 
-  Widget _buildWeatherSelector() {
-    final weathers = [
-      (Weather.sunny, '晴', Icons.wb_sunny, Colors.orange),
-      (Weather.cloudy, '多云', Icons.wb_cloudy, Colors.grey),
-      (Weather.rainy, '雨', Icons.water_drop, Colors.blue),
-      (Weather.snowy, '雪', Icons.ac_unit, Colors.lightBlue),
-      (Weather.windy, '风', Icons.air, Colors.teal),
-    ];
+  Widget _buildMarkdownPreview(String text) {
+    final lines = text.split('\n');
+    List<Widget> widgets = [];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '天气',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: weathers.map((weather) {
-            final isSelected = _selectedWeather == weather.$1;
-            return ChoiceChip(
-              avatar: Icon(weather.$3, size: 18, color: weather.$4),
-              label: Text(weather.$2),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedWeather = selected ? weather.$1 : null;
-                });
-              },
-              selectedColor: weather.$4.withOpacity(0.15),
-              checkmarkColor: weather.$4,
-              labelStyle: TextStyle(
-                color: isSelected ? weather.$4 : null,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+    for (var line in lines) {
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+
+      final imageMatch = RegExp(r'^!\[(.*?)\]\((.*?)\)$').firstMatch(line.trim());
+      if (imageMatch != null) {
+        final alt = imageMatch.group(1) ?? '';
+        widgets.add(_buildImagePlaceholder(alt));
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+
+      if (line.startsWith('### ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 6),
+          child: Text(line.substring(4), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16)),
+        ));
+      } else if (line.startsWith('## ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Text(line.substring(3), style: Theme.of(context).textTheme.titleLarge),
+        ));
+      } else if (line.startsWith('# ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Text(line.substring(2), style: Theme.of(context).textTheme.headlineMedium),
+        ));
+      } else if (line.startsWith('> ')) {
+        widgets.add(Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(left: 12),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(width: 3, color: Theme.of(context).colorScheme.primary)),
+          ),
+          child: Text(line.substring(2), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
+        ));
+      } else if (line.startsWith('- ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('• ', style: Theme.of(context).textTheme.bodyLarge),
+              Expanded(child: _buildInlineRichText(line.substring(2))),
+            ],
+          ),
+        ));
+      } else {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: _buildInlineRichText(line),
+        ));
+      }
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+  }
+
+  Widget _buildInlineRichText(String text) {
+    final parts = <TextSpan>[];
+    final regex = RegExp(r'\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`');
+    int lastEnd = 0;
+
+    for (final match in regex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        parts.add(TextSpan(text: text.substring(lastEnd, match.start)));
+      }
+      if (match.group(1) != null) {
+        parts.add(TextSpan(text: match.group(1), style: const TextStyle(fontWeight: FontWeight.bold)));
+      } else if (match.group(2) != null) {
+        parts.add(TextSpan(text: match.group(2), style: const TextStyle(fontStyle: FontStyle.italic)));
+      } else if (match.group(3) != null) {
+        parts.add(TextSpan(
+          text: match.group(3),
+          style: TextStyle(fontFamily: 'monospace', backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.08)),
+        ));
+      }
+      lastEnd = match.end;
+    }
+    if (lastEnd < text.length) {
+      parts.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: Theme.of(context).textTheme.bodyLarge,
+        children: parts.isEmpty ? [TextSpan(text: text)] : parts,
+      ),
     );
   }
 
-  Widget _buildMoodSelector() {
-    final moods = [
-      (Mood.happy, '开心', Icons.sentiment_very_satisfied, Colors.green),
-      (Mood.calm, '平静', Icons.sentiment_satisfied, Colors.blue),
-      (Mood.sad, '难过', Icons.sentiment_dissatisfied, Colors.indigo),
-      (Mood.angry, '生气', Icons.sentiment_very_dissatisfied, Colors.red),
-      (Mood.excited, '兴奋', Icons.mood, Colors.orange),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '心情',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: moods.map((mood) {
-            final isSelected = _selectedMood == mood.$1;
-            return ChoiceChip(
-              avatar: Icon(mood.$3, size: 18, color: mood.$4),
-              label: Text(mood.$2),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedMood = selected ? mood.$1 : null;
-                });
-              },
-              selectedColor: mood.$4.withOpacity(0.15),
-              checkmarkColor: mood.$4,
-              labelStyle: TextStyle(
-                color: isSelected ? mood.$4 : null,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+  Widget _buildImagePlaceholder(String alt) {
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image, size: 40, color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+          const SizedBox(height: 8),
+          Text(alt, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+        ],
+      ),
     );
   }
 
@@ -280,77 +489,54 @@ class _EditorPageState extends State<EditorPage> {
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-            ),
+            colorScheme: Theme.of(context).colorScheme.copyWith(primary: Theme.of(context).colorScheme.primary),
           ),
           child: child!,
         );
       },
     );
     if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      setState(() => _selectedDate = picked);
     }
   }
 
   void _saveDiary() {
     if (_contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请写点什么吧')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请写点什么吧')));
       return;
     }
-
-    // Mock save - in real app would save to database
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('日记已保存（Mock）')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('日记已保存（Mock）')));
     Navigator.pop(context);
   }
+}
 
-  IconData _getWeatherIcon(Weather weather) {
-    switch (weather) {
-      case Weather.sunny: return Icons.wb_sunny;
-      case Weather.cloudy: return Icons.wb_cloudy;
-      case Weather.rainy: return Icons.water_drop;
-      case Weather.snowy: return Icons.ac_unit;
-      case Weather.windy: return Icons.air;
-    }
-  }
+class _ToolbarButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
-  Color _getWeatherColor(Weather weather) {
-    switch (weather) {
-      case Weather.sunny: return Colors.orange;
-      case Weather.cloudy: return Colors.grey;
-      case Weather.rainy: return Colors.blue;
-      case Weather.snowy: return Colors.lightBlue;
-      case Weather.windy: return Colors.teal;
-    }
-  }
+  const _ToolbarButton({required this.icon, required this.label, required this.onTap});
 
-  IconData _getMoodIcon(Mood mood) {
-    switch (mood) {
-      case Mood.happy: return Icons.sentiment_very_satisfied;
-      case Mood.calm: return Icons.sentiment_satisfied;
-      case Mood.sad: return Icons.sentiment_dissatisfied;
-      case Mood.angry: return Icons.sentiment_very_dissatisfied;
-      case Mood.excited: return Icons.mood;
-    }
-  }
-
-  Color _getMoodColor(Mood mood) {
-    switch (mood) {
-      case Mood.happy: return Colors.green;
-      case Mood.calm: return Colors.blue;
-      case Mood.sad: return Colors.indigo;
-      case Mood.angry: return Colors.red;
-      case Mood.excited: return Colors.orange;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+          ],
+        ),
+      ),
+    );
   }
 }

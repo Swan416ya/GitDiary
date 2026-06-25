@@ -1,14 +1,9 @@
-enum Weather { sunny, cloudy, rainy, snowy, windy }
-
-enum Mood { happy, calm, sad, angry, excited }
-
 class Diary {
   final int id;
   final DateTime date;
   final String? title;
   final String content;
-  final Weather? weather;
-  final Mood? mood;
+  final String? emoji;
   final List<String>? tags;
 
   Diary({
@@ -16,8 +11,7 @@ class Diary {
     required this.date,
     this.title,
     required this.content,
-    this.weather,
-    this.mood,
+    this.emoji,
     this.tags,
   });
 
