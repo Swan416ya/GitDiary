@@ -26,10 +26,13 @@ class SettingsPage extends StatelessWidget {
       body: SafeArea(
         child: ListView(
           children: [
-            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              child: Text('设置', style: Theme.of(context).textTheme.headlineLarge),
+            ),
             _buildSection(context, '账号', [
               _SettingItem(
-                icon: Icons.account_circle,
+                icon: Icons.account_circle_outlined,
                 title: 'GitHub 账号',
                 subtitle: username,
                 onTap: () {
@@ -40,7 +43,7 @@ class SettingsPage extends StatelessWidget {
                 },
               ),
               _SettingItem(
-                icon: Icons.sync,
+                icon: Icons.sync_outlined,
                 title: '同步设置',
                 subtitle: '自动同步已开启',
                 onTap: () {},
@@ -48,13 +51,13 @@ class SettingsPage extends StatelessWidget {
             ]),
             _buildSection(context, '外观', [
               _SettingItem(
-                icon: Icons.palette,
+                icon: Icons.palette_outlined,
                 title: '主题',
                 subtitle: '跟随系统',
                 onTap: () {},
               ),
               _SettingItem(
-                icon: Icons.format_size,
+                icon: Icons.text_fields_outlined,
                 title: '字体大小',
                 subtitle: '标准',
                 onTap: () {},
@@ -62,13 +65,13 @@ class SettingsPage extends StatelessWidget {
             ]),
             _buildSection(context, '数据', [
               _SettingItem(
-                icon: Icons.download,
+                icon: Icons.download_outlined,
                 title: '导出日记',
                 subtitle: '导出为 Markdown 文件',
                 onTap: () {},
               ),
               _SettingItem(
-                icon: Icons.delete_outline,
+                icon: Icons.cleaning_services_outlined,
                 title: '清除缓存',
                 subtitle: '已使用 2.5 MB',
                 onTap: () {},
@@ -94,17 +97,37 @@ class SettingsPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
           child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.mutedTextColor,
-            ),
+            title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall,
           ),
         ),
-        ...items.map((item) => _SettingTile(item: item)),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceAltColor,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            border: Border.all(color: AppTheme.dividerColor),
+          ),
+          child: Column(
+            children: items.asMap().entries.map((entry) {
+              final i = entry.key;
+              final item = entry.value;
+              return Column(
+                children: [
+                  _SettingTile(item: item),
+                  if (i < items.length - 1)
+                    Container(
+                      margin: const EdgeInsets.only(left: 56),
+                      height: 0.5,
+                      color: AppTheme.dividerColor,
+                    ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ],
     );
   }
@@ -131,26 +154,47 @@ class _SettingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: item.onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(
-          children: [
-            Icon(item.icon, size: 22, color: AppTheme.primaryColor.withOpacity(0.7)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(item.subtitle, style: TextStyle(fontSize: 13, color: AppTheme.mutedTextColor)),
-                ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(item.icon, size: 20, color: AppTheme.onSurfaceMutedColor),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.onSurfaceColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.onSurfaceFaintColor,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right, size: 20, color: AppTheme.mutedTextColor.withOpacity(0.4)),
-          ],
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppTheme.onSurfaceFaintColor,
+              ),
+            ],
+          ),
         ),
       ),
     );

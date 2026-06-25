@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:html' as html;
 
 void main() {
+  initializeDateFormatting('zh', null);
   runApp(const MyApp());
 }
 
@@ -81,7 +83,7 @@ class _AppInitializerState extends State<AppInitializer> {
               onPressed: () => Navigator.pop(context),
               child: const Text('稍后'),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.push(

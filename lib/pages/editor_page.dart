@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import '../theme/app_theme.dart';
 import '../models/diary.dart';
 import '../services/diary_service.dart';
 import '../widgets/emoji_picker.dart';
@@ -25,6 +26,7 @@ class _EditorPageState extends State<EditorPage> {
   late TextEditingController _contentController;
   String? _selectedEmoji;
   bool _isPreview = false;
+  bool _isSaving = false;
   late ScrollController _scrollController;
 
   @override
@@ -76,12 +78,14 @@ class _EditorPageState extends State<EditorPage> {
 
     _insertText('\n\n![]($imagePath)\n\n');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('图片已选择，保存日记时将上传到 $imagePath'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('图片保存时将上传到 $imagePath'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _openEmojiPicker() {
@@ -89,6 +93,10 @@ class _EditorPageState extends State<EditorPage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXl)),
+      ),
       builder: (context) => EmojiPickerSheet(
         selectedEmoji: _selectedEmoji,
         onSelected: (emoji) {
@@ -100,25 +108,71 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+  Future<void> _saveDiary() async {
+    if (_contentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请写点什么吧')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final diary = Diary(
+      id: _selectedDate.millisecondsSinceEpoch,
+      date: _selectedDate,
+      title: _titleController.text.trim().isEmpty ? null : _titleController.text.trim(),
+      content: _contentController.text,
+      emoji: _selectedEmoji,
+    );
+
+    try {
+      await DiaryService.saveDiary(diary);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 2)),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存失败: $e'), duration: const Duration(seconds: 4)),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.diary == null ? '写日记' : '编辑日记'),
+        leading: IconButton(
+          icon: const Icon(Icons.close, size: 22),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.diary == null ? '写日记' : '编辑',
+          style: const TextStyle(fontSize: 16),
+        ),
         actions: [
           IconButton(
-            onPressed: () {
-              setState(() {
-                _isPreview = !_isPreview;
-              });
+            onPressed: _isSaving ? null : () {
+              setState(() => _isPreview = !_isPreview);
             },
-            icon: Icon(_isPreview ? Icons.edit : Icons.preview),
+            icon: Icon(_isPreview ? Icons.edit_outlined : Icons.visibility_outlined, size: 20),
             tooltip: _isPreview ? '编辑' : '预览',
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           TextButton(
-            onPressed: _saveDiary,
-            child: const Text('保存'),
+            onPressed: _isSaving ? null : _saveDiary,
+            child: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('保存'),
           ),
           const SizedBox(width: 8),
         ],
@@ -133,56 +187,50 @@ class _EditorPageState extends State<EditorPage> {
         Expanded(
           child: SingleChildScrollView(
             controller: _scrollController,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  onTap: _selectDate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Theme.of(context).dividerColor),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.calendar_today, size: 20, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 12),
-                        Text(
-                          DateFormat('yyyy年M月d日').format(_selectedDate),
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                        const Spacer(),
-                        Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildEmojiSelector(),
-                const SizedBox(height: 16),
+                _buildDateRow(),
+                const SizedBox(height: 20),
+                _buildEmojiRow(),
+                const SizedBox(height: 20),
                 TextField(
                   controller: _titleController,
                   decoration: InputDecoration(
-                    hintText: '标题（可选）',
-                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
+                    hintText: '标题',
+                    hintStyle: TextStyle(
+                      color: AppTheme.onSurfaceFaintColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    filled: false,
                   ),
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
+                  style: Theme.of(context).textTheme.headlineMedium,
+                  textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _contentController,
                   decoration: InputDecoration(
-                    hintText: '写下今天的故事...\n支持 Markdown 语法',
-                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
-                    alignLabelWithHint: true,
+                    hintText: '写下今天的故事...',
+                    hintStyle: TextStyle(
+                      color: AppTheme.onSurfaceFaintColor,
+                      fontSize: 15,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    filled: false,
                   ),
                   style: Theme.of(context).textTheme.bodyLarge,
                   maxLines: null,
-                  minLines: 10,
+                  minLines: 8,
                   keyboardType: TextInputType.multiline,
                   textInputAction: TextInputAction.newline,
                   onChanged: (_) => setState(() {}),
@@ -196,39 +244,73 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
-  Widget _buildEmojiSelector() {
-    return InkWell(
+  Widget _buildDateRow() {
+    return GestureDetector(
+      onTap: _selectDate,
+      child: Row(
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 15,
+            color: AppTheme.onSurfaceFaintColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            DateFormat('yyyy年M月d日 EEE', 'zh').format(_selectedDate),
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.onSurfaceMutedColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            Icons.chevron_right,
+            size: 16,
+            color: AppTheme.onSurfaceFaintColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmojiRow() {
+    return GestureDetector(
       onTap: _openEmojiPicker,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.emoji_emotions_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 12),
-            if (_selectedEmoji != null) ...[
-              Text(_selectedEmoji!, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              Text(
-                _emojiLabel(_selectedEmoji!),
-                style: Theme.of(context).textTheme.bodyLarge,
+      child: Row(
+        children: [
+          if (_selectedEmoji != null) ...[
+            Text(_selectedEmoji!, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            Text(
+              _emojiLabel(_selectedEmoji!),
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.onSurfaceMutedColor,
               ),
-            ] else
-              Text(
-                '心情',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                ),
+            ),
+          ] else ...[
+            Icon(
+              Icons.emoji_emotions_outlined,
+              size: 18,
+              color: AppTheme.onSurfaceFaintColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '心情',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.onSurfaceFaintColor,
               ),
-            const Spacer(),
-            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+            ),
           ],
-        ),
+          const Spacer(),
+          Icon(
+            Icons.chevron_right,
+            size: 16,
+            color: AppTheme.onSurfaceFaintColor,
+          ),
+        ],
       ),
     );
   }
@@ -248,8 +330,10 @@ class _EditorPageState extends State<EditorPage> {
   Widget _buildToolbar() {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+        color: AppTheme.surfaceAltColor,
+        border: Border(
+          top: BorderSide(color: AppTheme.dividerColor, width: 0.5),
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: SafeArea(
@@ -259,32 +343,26 @@ class _EditorPageState extends State<EditorPage> {
           children: [
             _ToolbarButton(
               icon: Icons.image_outlined,
-              label: '图片',
               onTap: _insertImage,
             ),
             _ToolbarButton(
               icon: Icons.format_bold,
-              label: '粗体',
               onTap: () => _insertText('**粗体**'),
             ),
             _ToolbarButton(
               icon: Icons.format_italic,
-              label: '斜体',
               onTap: () => _insertText('*斜体*'),
             ),
             _ToolbarButton(
-              icon: Icons.format_quote,
-              label: '引用',
-              onTap: () => _insertText('\n> 引用文字\n'),
+              icon: Icons.format_quote_outlined,
+              onTap: () => _insertText('\n> 引用\n'),
             ),
             _ToolbarButton(
               icon: Icons.format_list_bulleted,
-              label: '列表',
-              onTap: () => _insertText('\n- 列表项\n- 列表项\n'),
+              onTap: () => _insertText('\n- 列表项\n'),
             ),
             _ToolbarButton(
               icon: Icons.code,
-              label: '代码',
               onTap: () => _insertText('`代码`'),
             ),
           ],
@@ -295,26 +373,28 @@ class _EditorPageState extends State<EditorPage> {
 
   Widget _buildPreview() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Text(
-                DateFormat('yyyy年M月d日').format(_selectedDate),
-                style: Theme.of(context).textTheme.bodySmall,
+                DateFormat('yyyy年M月d日 EEE', 'zh').format(_selectedDate),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.onSurfaceMutedColor,
+                ),
               ),
               const Spacer(),
               if (_selectedEmoji != null)
-                Text(_selectedEmoji!, style: const TextStyle(fontSize: 24)),
+                Text(_selectedEmoji!, style: const TextStyle(fontSize: 22)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           if (_titleController.text.isNotEmpty)
             Text(_titleController.text, style: Theme.of(context).textTheme.headlineMedium),
-          if (_titleController.text.isNotEmpty)
-            const SizedBox(height: 16),
+          if (_titleController.text.isNotEmpty) const SizedBox(height: 16),
           _buildMarkdownPreview(_contentController.text),
         ],
       ),
@@ -342,7 +422,10 @@ class _EditorPageState extends State<EditorPage> {
       if (line.startsWith('### ')) {
         widgets.add(Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 6),
-          child: Text(line.substring(4), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16)),
+          child: Text(
+            line.substring(4),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 15),
+          ),
         ));
       } else if (line.startsWith('## ')) {
         widgets.add(Padding(
@@ -359,9 +442,18 @@ class _EditorPageState extends State<EditorPage> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.only(left: 12),
           decoration: BoxDecoration(
-            border: Border(left: BorderSide(width: 3, color: Theme.of(context).colorScheme.primary)),
+            border: Border(
+              left: BorderSide(width: 2, color: AppTheme.accentColor),
+            ),
           ),
-          child: Text(line.substring(2), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
+          child: Text(
+            line.substring(2),
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: AppTheme.onSurfaceMutedColor,
+              fontSize: 14,
+            ),
+          ),
         ));
       } else if (line.startsWith('- ')) {
         widgets.add(Padding(
@@ -369,7 +461,7 @@ class _EditorPageState extends State<EditorPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('• ', style: Theme.of(context).textTheme.bodyLarge),
+              Text('• ', style: TextStyle(color: AppTheme.accentColor, fontSize: 15)),
               Expanded(child: _buildInlineRichText(line.substring(2))),
             ],
           ),
@@ -395,13 +487,23 @@ class _EditorPageState extends State<EditorPage> {
         parts.add(TextSpan(text: text.substring(lastEnd, match.start)));
       }
       if (match.group(1) != null) {
-        parts.add(TextSpan(text: match.group(1), style: const TextStyle(fontWeight: FontWeight.bold)));
+        parts.add(TextSpan(
+          text: match.group(1),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ));
       } else if (match.group(2) != null) {
-        parts.add(TextSpan(text: match.group(2), style: const TextStyle(fontStyle: FontStyle.italic)));
+        parts.add(TextSpan(
+          text: match.group(2),
+          style: const TextStyle(fontStyle: FontStyle.italic),
+        ));
       } else if (match.group(3) != null) {
         parts.add(TextSpan(
           text: match.group(3),
-          style: TextStyle(fontFamily: 'monospace', backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.08)),
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            backgroundColor: AppTheme.primaryColor.withOpacity(0.06),
+          ),
         ));
       }
       lastEnd = match.end;
@@ -421,18 +523,18 @@ class _EditorPageState extends State<EditorPage> {
   Widget _buildImagePlaceholder(String alt) {
     return Container(
       width: double.infinity,
-      height: 200,
+      height: 180,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: AppTheme.primaryColor.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.dividerColor),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.image, size: 40, color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
-          const SizedBox(height: 8),
-          Text(alt, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+          Icon(Icons.image_outlined, size: 32, color: AppTheme.onSurfaceFaintColor),
+          const SizedBox(height: 6),
+          Text(alt, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -444,78 +546,33 @@ class _EditorPageState extends State<EditorPage> {
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 1)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(primary: Theme.of(context).colorScheme.primary),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);
-    }
-  }
-
-  Future<void> _saveDiary() async {
-    if (_contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请写点什么吧')));
-      return;
-    }
-
-    final diary = Diary(
-      id: _selectedDate.millisecondsSinceEpoch,
-      date: _selectedDate,
-      title: _titleController.text.trim().isEmpty ? null : _titleController.text.trim(),
-      content: _contentController.text,
-      emoji: _selectedEmoji,
-    );
-
-    // 显示保存中
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('正在保存...'), duration: Duration(seconds: 10)),
-    );
-
-    try {
-      await DiaryService.saveDiary(diary);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('日记已保存'), duration: Duration(seconds: 2)),
-      );
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败: $e'), duration: const Duration(seconds: 4)),
-      );
     }
   }
 }
 
 class _ToolbarButton extends StatelessWidget {
   final IconData icon;
-  final String label;
   final VoidCallback onTap;
 
-  const _ToolbarButton({required this.icon, required this.label, required this.onTap});
+  const _ToolbarButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(
+            icon,
+            size: 20,
+            color: AppTheme.onSurfaceMutedColor,
+          ),
         ),
       ),
     );

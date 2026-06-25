@@ -51,16 +51,12 @@ class _RepoSelectionPageState extends State<RepoSelectionPage> {
   }
 
   Future<void> _selectRepo(Map<String, dynamic> repo) async {
-    final repoName = repo['name'] as String;
     final repoFullName = repo['full_name'] as String;
     html.window.localStorage['selected_repo'] = repoFullName;
     setState(() {
       _selectedRepo = repoFullName;
     });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已选择仓库: $repoName')),
-      );
       Navigator.pop(context, repoFullName);
     }
   }
@@ -146,7 +142,7 @@ class _RepoSelectionPageState extends State<RepoSelectionPage> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('创建失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('创建失败: $e')),
         );
       }
     }
@@ -156,26 +152,36 @@ class _RepoSelectionPageState extends State<RepoSelectionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('选择日记仓库'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('选择仓库', style: TextStyle(fontSize: 16)),
         actions: [
           IconButton(
             onPressed: _createNewRepo,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, size: 22),
             tooltip: '创建新仓库',
           ),
         ],
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
             : _error != null
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red.withOpacity(0.5)),
+                        Icon(Icons.error_outline, size: 36, color: const Color(0xFFC53030).withOpacity(0.5)),
                         const SizedBox(height: 12),
-                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                        Text(_error!, style: const TextStyle(color: Color(0xFFC53030), fontSize: 14)),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _loadRepos,
@@ -189,19 +195,20 @@ class _RepoSelectionPageState extends State<RepoSelectionPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.folder_off, size: 48, color: AppTheme.mutedTextColor.withOpacity(0.5)),
+                            Icon(Icons.folder_off_outlined, size: 36, color: AppTheme.onSurfaceFaintColor),
                             const SizedBox(height: 12),
-                            Text('还没有仓库', style: TextStyle(color: AppTheme.mutedTextColor)),
+                            Text('还没有仓库', style: Theme.of(context).textTheme.bodySmall),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
                               onPressed: _createNewRepo,
-                              icon: const Icon(Icons.add),
+                              icon: const Icon(Icons.add, size: 18),
                               label: const Text('创建一个'),
                             ),
                           ],
                         ),
                       )
                     : ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: _repos.length,
                         itemBuilder: (context, index) {
                           final repo = _repos[index];
@@ -210,27 +217,60 @@ class _RepoSelectionPageState extends State<RepoSelectionPage> {
                           final isPrivate = repo['private'] as bool? ?? false;
                           final isSelected = _selectedRepo == fullName;
 
-                          return ListTile(
-                            leading: Icon(
-                              isPrivate ? Icons.lock_outline : Icons.public,
-                              color: AppTheme.primaryColor.withOpacity(0.6),
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primaryColor.withOpacity(0.04)
+                                  : AppTheme.surfaceAltColor,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.primaryColor.withOpacity(0.2)
+                                    : AppTheme.dividerColor,
+                              ),
                             ),
-                            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                            subtitle: Text(
-                              isPrivate ? '私有' : '公开',
-                              style: TextStyle(fontSize: 12, color: AppTheme.mutedTextColor),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _selectRepo(repo),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isPrivate ? Icons.lock_outline : Icons.public_outlined,
+                                        size: 18,
+                                        color: AppTheme.onSurfaceMutedColor,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Text(
+                                          name,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.onSurfaceColor,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(Icons.check_circle, size: 18, color: AppTheme.primaryColor)
+                                      else
+                                        Icon(Icons.chevron_right, size: 18, color: AppTheme.onSurfaceFaintColor),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                            trailing: isSelected
-                                ? Icon(Icons.check_circle, color: AppTheme.primaryColor)
-                                : Icon(Icons.chevron_right, color: AppTheme.mutedTextColor.withOpacity(0.4)),
-                            onTap: () => _selectRepo(repo),
                           );
                         },
                       ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createNewRepo,
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add, size: 20),
         label: const Text('新建仓库'),
       ),
     );
